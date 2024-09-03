@@ -1,2 +1,3 @@
 /vendor
-interface/logs
+.env
+logs/*

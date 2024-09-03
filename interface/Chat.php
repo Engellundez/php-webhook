@@ -82,9 +82,9 @@ class Chat implements MessageComponentInterface
 
 		// Envía el mensaje a todos los clientes
 		foreach ($this->clients as $client) {
-			if ($client->resourceId != $resourceId) {
+			// if ($client->resourceId != $resourceId) {
 				$client->send(json_encode($datos));
-			}
+			// }
 		}
 	}
 
