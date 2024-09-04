@@ -17,12 +17,19 @@ Config::load();
 
 class Server
 {
+    private $log;
+
+    public function __construct()
+    {
+        $this->log = new LoggerService();
+    }
+
     public function start()
     {
         $port = Config::get('WEBSOCKET_PORT');
         $secretWord = Config::get('JWT_SECRET');
 
-        LoggerService::info("Servidor Inicializado en el puerto $port y con la secret $secretWord");
+        $this->log->info("Servidor Inicializado en el puerto $port y con la secret $secretWord");
         $mySecret = new JwtAuthenticator($secretWord);
 
         $server = IoServer::factory(

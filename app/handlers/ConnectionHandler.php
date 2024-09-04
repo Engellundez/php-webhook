@@ -26,16 +26,18 @@ class ConnectionHandler implements MessageComponentInterface
         $token = $this->extractTokenFromRequest($conn); // Obtener JWT del request
 
         if (!$this->authenticator->authenticate($token)) {
+            $this->log->error('La conexión no pudo ser autenticada');
             $conn->close();
             return;
         }
 
         // Asociar la conexión con el usuario autenticado
-        $userId = $this->authenticator->getUserIdFromToken($token);
-        $conn->userId = $userId;
+        $data = $this->authenticator->getDataFromToken($token);
+        $conn->user_id = $data->user_id;
+        $conn->system_id = $data->system_id;
         $this->clients->attach($conn);
 
-        $this->log->info("Usuario {$userId} conectado.");
+        $this->log->info("Usuario {$data->user_id} conectado en el sistema {$data->system_id}");
     }
 
     public function onMessage(ConnectionInterface $from, $msg)
@@ -46,7 +48,7 @@ class ConnectionHandler implements MessageComponentInterface
     public function onClose(ConnectionInterface $conn)
     {
         $this->clients->detach($conn);
-        $this->log->info("Usuario {$conn->userId} desconectado.");
+        $this->log->info("Usuario {$conn->user_id} desconectado.");
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e)
@@ -58,8 +60,15 @@ class ConnectionHandler implements MessageComponentInterface
     private function extractTokenFromRequest(ConnectionInterface $conn)
     {
         // Implementación para extraer JWT del request
-        $queryParams = [];
-        parse_str($conn->httpRequest->getUri()->getQuery(), $queryParams);
-        $userId = $queryParams['user_id'] ?? null;
+        try {
+            $querystring = $conn->httpRequest->getUri()->getQuery();
+            parse_str($querystring, $queryParams);
+
+            $token = $queryParams['token'] ?? null;
+            $this->log->info("Revisamos la información sobre el token: {$token} y ver si lo obtiene como debe");
+            return $token;
+        } catch (\Throwable $th) {
+            $this->log->error($th->getMessage());
+        }
     }
 }
