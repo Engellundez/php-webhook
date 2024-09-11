@@ -1,37 +1,40 @@
 <?php
 
-require_once 'vendor/autoload.php';
-
-use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
-use App\Server;
+use Ratchet\Http\HttpServer;
+use Ratchet\Server\IoServer;
+use Ratchet\WebSocket\WsServer;
+use App\Handlers\WebSocketHandler;  // Manejador principal del WebSocket
 use App\Services\LoggerService;
-use App\Utils\Config;
+use App\Utils\Config;               // Utilidad para cargar configuraciones
 
+use React\EventLoop\Loop;
+use React\Http\HttpServer as HttpServerReact;
+use React\Socket\SocketServer;
+use App\Handlers\RouteController;
+
+require __DIR__ . '/vendor/autoload.php';
+
+// Cargar configuraciones
 Config::load();
+$ip = Config::get('SERVER_IP', 'localhost');
+$port = Config::get('WS_PORT', 8080);
 
-$key = Config::get('JWT_SECRET');
+// Crear el loop de eventos de ReactPHP
+$loop = Loop::get();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && strpos($_SERVER['REQUEST_URI'], '/auth') !== false) {
-    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-    list($jwt) = sscanf($authHeader, 'Bearer %s');
+// Crear el servidor HTTP con ReactPHP
+$httpServer = new HttpServerReact(new RouteController());
+$socket = new SocketServer("$ip:$port", [], $loop);
+$httpServer->listen($socket);
 
-    if ($jwt) {
-        try {
-            $decoded = JWT::decode($jwt, new Key($key, 'HS256'));
+// Crear servidor WebSocket utilizando el loop
+$webSocketServer = new HttpServer(new WsServer(new WebSocketHandler()));
 
-            http_response_code(200);
-            LoggerService::info("Autenticación exitosa");
-        } catch (\Firebase\JWT\SignatureInvalidException $se) {
-            http_response_code(400);
-            LoggerService::error('No se proporcionó un token');
-        }
-    } else {
-        http_response_code(400);
-        LoggerService::error('No se proporcionó un token');
-    }
-    // exit;
-}
+// Crear IoServer y pasarlo al loop
+$server = new IoServer($webSocketServer, $socket, $loop);
 
-// $server = new Server();
-// $server->start();
+// Log de inicio del servidor
+LoggerService::info("Servidor WebSocket escuchando en el puerto $port");
+
+// Ejecutar el servidor
+$loop->run();

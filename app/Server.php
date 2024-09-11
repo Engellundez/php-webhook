@@ -2,45 +2,41 @@
 
 namespace App;
 
-use App\Auth\JwtAuthenticator;
-use App\Utils\Config;
-use Ratchet\Server\IoServer;
-use Ratchet\Http\HttpServer;
-use Ratchet\WebSocket\WsServer;
-use App\Handlers\ConnectionHandler;
-use App\Handlers\MessageHandler;
-use App\Handlers\RoomHandler;
-use App\Services\LoggerService;
+use Ratchet\MessageComponentInterface;
+use Ratchet\ConnectionInterface;
 
-// Cargar la configuración
-Config::load();
-
-class Server
+class Server implements MessageComponentInterface
 {
-    private $log;
+    protected $clients;
 
-    public function __construct()
-    {
-        $this->log = new LoggerService();
+    public function __construct() {
+        $this->clients = new \SplObjectStorage; // Almacena las conexiones
     }
 
-    public function start()
-    {
-        $port = Config::get('WEBSOCKET_PORT');
-        $secretWord = Config::get('JWT_SECRET');
+    public function onOpen(ConnectionInterface $conn) {
+        // Conexión abierta
+        $this->clients->attach($conn);
+        echo "Nueva conexión ({$conn->resourceId})\n";
+    }
 
-        $this->log->info("Servidor Inicializado en el puerto $port y con la secret $secretWord");
-        $mySecret = new JwtAuthenticator($secretWord);
+    public function onMessage(ConnectionInterface $from, $msg) {
+        // Mensaje recibido
+        foreach ($this->clients as $client) {
+            if ($from !== $client) {
+                $client->send($msg);
+            }
+        }
+    }
 
-        $server = IoServer::factory(
-            new HttpServer(
-                new WsServer(
-                    new ConnectionHandler($mySecret) // Inicializa tu manejador de conexiones
-                )
-            ),
-            $port
-        );
+    public function onClose(ConnectionInterface $conn) {
+        // Conexión cerrada
+        $this->clients->detach($conn);
+        echo "Conexión ({$conn->resourceId}) cerrada\n";
+    }
 
-        $server->run();
+    public function onError(ConnectionInterface $conn, \Exception $e) {
+        // Error en la conexión
+        echo "Error: {$e->getMessage()}\n";
+        $conn->close();
     }
 }

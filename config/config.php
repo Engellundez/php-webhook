@@ -6,7 +6,7 @@ $dotenv = Dotenv::createImmutable(__DIR__ . '/../');
 $dotenv->load();
 
 return [
-	'WEBSOCKET_PORT' => $_ENV['WEBSOCKET_PORT'] ?? 'localhost',
+	'WS_PORT' => $_ENV['WS_PORT'] ?? 'localhost',
 	'SERVER_IP' => $_ENV['SERVER_IP'] ?? '8010',
 
 	'JWT_SECRET' => $_ENV['JWT_SECRET'] ?? 'your_jwt_secret_key',
